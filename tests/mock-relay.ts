@@ -9,8 +9,12 @@ export interface MockRelay {
   close(): Promise<void>;
 }
 
-// silent: 接続は受け付けるが一切応答しないリレー (遅いリレーの再現用)
-export async function startMockRelay(events: Event[], options: { silent?: boolean } = {}): Promise<MockRelay> {
+// silent: 接続は受け付けるが一切応答しないリレー (落ちているリレーの再現用)
+// delayMs: REQ を受け取ってから応答するまでの待ち時間 (遠くて遅いリレーの再現用)
+export async function startMockRelay(
+  events: Event[],
+  options: { silent?: boolean; delayMs?: number } = {},
+): Promise<MockRelay> {
   const sockets = new Set<Socket>();
   const server: Server = createServer((_req, res) => {
     res.writeHead(426).end("WebSocket only");
@@ -37,7 +41,12 @@ export async function startMockRelay(events: Event[], options: { silent?: boolea
         const frame = readFrame(buffer);
         if (!frame) return;
         buffer = buffer.subarray(frame.size);
-        if (frame.opcode === 0x1) handleMessage(socket, events, frame.payload.toString());
+        if (frame.opcode === 0x1) {
+          const text = frame.payload.toString();
+          setTimeout(() => {
+            if (!socket.destroyed) handleMessage(socket, events, text);
+          }, options.delayMs ?? 0);
+        }
         else if (frame.opcode === 0x8) socket.end(Buffer.from([0x88, 0]));
       }
     });

@@ -19,9 +19,9 @@ export interface QueryResult<T> {
   ok: boolean;
 }
 
+// リレーごとに持っている投稿が違うので、すべてのリレーの応答を待ってマージする。
+// 応答しないリレーがあっても、この時間で打ち切る
 const TIMEOUT_MS = 3000;
-// この数のリレーが応答したら、残りのリレーを待たずに打ち切る
-const ENOUGH_RESPONSES = 2;
 
 export function decodeNpub(npub: string): string {
   const decoded = nip19.decode(npub);
@@ -35,14 +35,13 @@ export async function query(relays: string[], filter: Filter): Promise<QueryResu
   if (relays.length === 0) return { data: [], ok: false };
   const events = new Map<string, Event>();
   const sockets: WebSocket[] = [];
-  const enough = Math.min(ENOUGH_RESPONSES, relays.length);
   let responded = 0;
   let finished = 0;
 
   await new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, TIMEOUT_MS);
     const check = () => {
-      if (responded >= enough || finished >= relays.length) {
+      if (finished >= relays.length) {
         clearTimeout(timer);
         resolve();
       }

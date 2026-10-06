@@ -48,15 +48,20 @@ events.push(
 let relay: MockRelay;
 let secondRelay: MockRelay;
 let silentRelay: MockRelay;
+let slowRelay: MockRelay;
+
+// 遅いリレーにだけ届いている投稿 (クライアントが一部のリレーにしか送れなかった場合の再現)
+const slowOnlyEvent = sign({ kind: 1, created_at: BASE_TIME + 7200, content: "遅いリレーにだけある投稿" });
 
 before(async () => {
   relay = await startMockRelay(events);
   secondRelay = await startMockRelay(events);
   silentRelay = await startMockRelay([], { silent: true });
+  slowRelay = await startMockRelay([slowOnlyEvent], { delayMs: 300 });
 });
 
 after(async () => {
-  await Promise.all([relay.close(), secondRelay.close(), silentRelay.close()]);
+  await Promise.all([relay.close(), secondRelay.close(), silentRelay.close(), slowRelay.close()]);
 });
 
 const ctx = { waitUntil() {} };
@@ -115,15 +120,27 @@ describe("トップページ", () => {
     assert.match(body, /<a href="https:\/\/example\.com\/page" rel="nofollow noopener">/);
   });
 
-  test("2 つのリレーが応答したら、応答しないリレーを待たない", async () => {
+  test("先に応答したリレーで打ち切らず、遅いリレーの投稿もマージする", async () => {
+    const res = await get("/", {
+      NOSTR_NPUB: NPUB,
+      NOSTR_RELAYS: [relay.url, secondRelay.url, slowRelay.url].join(","),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.text();
+    assert.equal(countPosts(body), 20);
+    assert.ok(body.includes("遅いリレーにだけある投稿"));
+    assert.ok(body.includes("テスト投稿 24"), "他のリレーの投稿も表示する");
+  });
+
+  test("応答しないリレーはタイムアウトで打ち切り、応答したリレーの投稿を表示する", async () => {
     const started = Date.now();
     const res = await get("/", {
       NOSTR_NPUB: NPUB,
-      NOSTR_RELAYS: [relay.url, secondRelay.url, silentRelay.url].join(","),
+      NOSTR_RELAYS: [relay.url, silentRelay.url].join(","),
     });
     assert.equal(res.status, 200);
     assert.equal(countPosts(await res.text()), 20);
-    assert.ok(Date.now() - started < 2000, "タイムアウト (3 秒) まで待っていない");
+    assert.ok(Date.now() - started < 5000, "タイムアウト (3 秒) で打ち切っている");
   });
 
   test("リレーに接続できないときは 503 を返し、キャッシュさせない", async () => {
