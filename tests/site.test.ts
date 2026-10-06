@@ -77,7 +77,7 @@ describe("トップページ", () => {
     assert.match(body, /<title>RikiyaOta<\/title>/);
     assert.match(body, /<img class="avatar" src="https:\/\/example\.com\/me\.jpg"/);
     assert.match(body, /<p class="bio">テスト用のプロフィールです。&lt;b&gt;太字&lt;\/b&gt;<\/p>/);
-    assert.ok(body.includes(`href="https://njump.me/${NPUB}"`));
+    assert.ok(body.includes(`href="https://nostr.com/${NPUB}"`));
     assert.ok(body.includes('href="https://github.com/RikiyaOta"'));
   });
 
@@ -85,7 +85,7 @@ describe("トップページ", () => {
     const res = await get("/");
     assert.equal(res.headers.get("x-robots-tag"), "noindex");
     assert.match(res.headers.get("content-security-policy") ?? "", /default-src 'none'/);
-    assert.match(await res.text(), /<meta name="robots" content="noindex">/);
+    assert.match(await res.text(), /<meta name="robots" content="noindex" \/>/);
   });
 
   test("リプライを除いた投稿を新しい順に 20 件表示し、前の投稿へリンクする", async () => {
@@ -93,7 +93,7 @@ describe("トップページ", () => {
     assert.equal(countPosts(body), 20);
     assert.ok(!body.includes("これはリプライ"));
     assert.ok(body.indexOf("テスト投稿 24") < body.indexOf("テスト投稿 23"));
-    assert.match(body, /href="https:\/\/njump\.me\/nevent1/);
+    assert.match(body, /href="https:\/\/nostr\.com\/nevent1/);
     assert.match(body, />9月1日<\/time>|>2026年9月1日<\/time>/);
 
     const next = body.match(/href="(\/\?until=\d+)"/);
