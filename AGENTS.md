@@ -13,7 +13,7 @@
    - コマンド実行時は常に `mise exec -- <command>` を介すること。
 3. **サプライチェーンセキュリティ（3日間ルール & Hash Pinning）**:
    - `mise.toml` の `minimum_release_age = "3d"`、`pnpm-workspace.yaml` の `minimumReleaseAge: 4320`、`renovate.json` の `minimumReleaseAge: "3 days"`（3日間）を厳格に順守すること（リリース後3日未満の新着パッケージ・ツールはインストールしない）。これらの設定値は変更しないこと。
-   - `mise.toml` のツールと `package.json` の依存は `x.y.z` で完全固定し、更新は Renovate の PR で行うこと。
+   - `mise.toml` のツールと `package.json` の依存は `x.y.z` で完全固定すること。Renovate は `renovate.json` の `"enabled": false` で停止しており、更新はオーナーが気づいたときに手動で行う。
    - GitHub Actions ワークフロー内のすべてのアクションは **40文字の Git コミットハッシュ（+バージョンコメント `# vX.Y.Z`）** で完全固定すること（`mise exec -- pinact run` を使用）。
 4. **プライバシー・ドキュメント制約**:
    - ユーザーの要望により、`README.md` 等の対外的なドキュメントにはカスタムドメイン名を明記・過剰アピールしないこと。
@@ -119,7 +119,7 @@ mise exec -- pnpm check            # Worker のバンドル確認 (wrangler depl
 │       └── deploy.yml       # main マージ時に wrangler deploy
 ├── src/                     # Worker 本体
 ├── tests/                   # テストと疑似リレー
-├── renovate.json            # 依存の自動更新
+├── renovate.json            # 依存の自動更新 (現在は停止中)
 ├── wrangler.jsonc           # Worker 設定 (カスタムドメイン)
 ├── tsconfig.json
 ├── pnpm-workspace.yaml
