@@ -134,15 +134,9 @@ function postList(page: PostsPage | null, isFirstPage: boolean): Html {
         const url = gatewayUrl(
           nip19.neventEncode({ id: post.id, author: post.pubkey }),
         );
-        return html`<li>
-          <a class="date" href="${url}"
-            ><time
-              datetime="${date.toISOString()}"
-              title="${fullDate.format(date)}"
-              >${shortDate(date, now)}</time
-            ></a
-          >${noteContent(post)}
-        </li> `;
+        // li は white-space: pre-wrap なので、タグの前後に改行や字下げを入れると表示に出てしまう
+        // prettier-ignore
+        return html`<li><a class="date" href="${url}"><time datetime="${date.toISOString()}" title="${fullDate.format(date)}">${shortDate(date, now)}</time></a>${noteContent(post)}</li>`;
       })}
     </ol>
     ${pagerHtml}`;
