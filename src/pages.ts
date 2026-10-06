@@ -43,95 +43,137 @@ h2 { font-size: 0.8rem; font-weight: 600; color: var(--muted); letter-spacing: 0
 footer { margin-top: 4rem; font-size: 0.8rem; color: var(--muted); }
 `;
 
-export function layout(options: { title?: string; profile: Profile | null; body: Html }): Html {
+export function layout(options: {
+  title?: string;
+  profile: Profile | null;
+  body: Html;
+}): Html {
   const { title, profile, body } = options;
   const picture = safeUrl(profile?.picture);
   return html`<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>${title ? `${title} - ${config.name}` : config.name}</title>
-${picture && html`<link rel="icon" href="${picture}">`}
-<style>${raw(STYLE)}</style>
-</head>
-<body>
-${body}
-<footer>© ${new Date().getFullYear()} ${config.name}</footer>
-</body>
-</html>
-`;
+    <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex" />
+        <title>${title ? `${title} - ${config.name}` : config.name}</title>
+        ${picture && html`<link rel="icon" href="${picture}" />`}
+        <style>
+          ${raw(STYLE)}
+        </style>
+      </head>
+      <body>
+        ${body}
+        <footer>© ${new Date().getFullYear()} ${config.name}</footer>
+      </body>
+    </html> `;
 }
 
 // トップページ: 名前・自己紹介・リンクと、その下に投稿一覧
-export function homePage(options: { profile: Profile | null; npub: string; page: PostsPage | null; isFirstPage: boolean }): Html {
+export function homePage(options: {
+  profile: Profile | null;
+  npub: string;
+  page: PostsPage | null;
+  isFirstPage: boolean;
+}): Html {
   const { profile, npub, page, isFirstPage } = options;
   const links = [{ label: "Nostr", url: gatewayUrl(npub) }, ...config.links];
   const picture = safeUrl(profile?.picture);
   return html`<header>
-${picture && html`<img class="avatar" src="${picture}" alt="" width="64" height="64">`}
-<h1><a href="/">${config.name}</a></h1>
-${profile?.about && html`<p class="bio">${profile.about}</p>`}
-<p class="links">${links.map((link, i) => html`${i > 0 && html`<span>/</span>`}<a href="${link.url}" rel="me">${link.label}</a>`)}</p>
-</header>
-<main>
-<h2>Posts</h2>
-${postList(page, isFirstPage)}
-</main>`;
+      ${picture && html`<img class="avatar" src="${picture}" alt="" width="64" height="64" />`}
+      <h1><a href="/">${config.name}</a></h1>
+      ${profile?.about && html`<p class="bio">${profile.about}</p>`}
+      <p class="links">
+        ${links.map((link, i) => html`${i > 0 && html`<span>/</span>`}<a href="${link.url}" rel="me">${link.label}</a>`)}
+      </p>
+    </header>
+    <main>
+      <h2>Posts</h2>
+      ${postList(page, isFirstPage)}
+    </main>`;
 }
 
 export function notFoundPage(): Html {
   return html`<header>
-<h1><a href="/">${config.name}</a></h1>
-</header>
-<main>
-<p>ページが見つかりませんでした。</p>
-<p><a href="/">トップへ戻る</a></p>
-</main>`;
+      <h1><a href="/">${config.name}</a></h1>
+    </header>
+    <main>
+      <p>ページが見つかりませんでした。</p>
+      <p><a href="/">トップへ戻る</a></p>
+    </main>`;
 }
 
 function postList(page: PostsPage | null, isFirstPage: boolean): Html {
   if (!page) {
-    return html`<p class="muted">投稿を取得できませんでした。時間をおいて再度お試しください。</p>`;
+    return html`<p class="muted">
+      投稿を取得できませんでした。時間をおいて再度お試しください。
+    </p>`;
   }
   // 前のページを見ているときは、最新の投稿 (トップ) へ戻るリンクも出す
   const pager = [
     ...(isFirstPage ? [] : [{ label: "最新の投稿へ", url: "/" }]),
-    ...(page.nextUntil !== null ? [{ label: "もっと前の投稿", url: `/?until=${page.nextUntil}` }] : []),
+    ...(page.nextUntil !== null
+      ? [{ label: "もっと前の投稿", url: `/?until=${page.nextUntil}` }]
+      : []),
   ];
   const pagerHtml =
     pager.length > 0 &&
-    html`<p class="pager">${pager.map((link, i) => html`${i > 0 && html`<span>/</span>`}<a href="${link.url}">${link.label}</a>`)}</p>`;
+    html`<p class="pager">
+      ${pager.map((link, i) => html`${i > 0 && html`<span>/</span>`}<a href="${link.url}">${link.label}</a>`)}
+    </p>`;
   if (page.posts.length === 0 && page.nextUntil === null) {
-    return html`<p class="muted">${isFirstPage ? "まだ投稿がありません。" : "これより前の投稿はありません。"}</p>
-${pagerHtml}`;
+    return html`<p class="muted">
+        ${isFirstPage ? "まだ投稿がありません。" : "これより前の投稿はありません。"}
+      </p>
+      ${pagerHtml}`;
   }
   const now = new Date();
   return html`<ol class="posts">
-${page.posts.map((post) => {
-  const date = new Date(post.created_at * 1000);
-  const url = gatewayUrl(nip19.neventEncode({ id: post.id, author: post.pubkey }));
-  return html`<li><a class="date" href="${url}"><time datetime="${date.toISOString()}" title="${fullDate.format(date)}">${shortDate(date, now)}</time></a>${noteContent(post)}</li>
-`;
-})}</ol>
-${pagerHtml}`;
+      ${page.posts.map((post) => {
+        const date = new Date(post.created_at * 1000);
+        const url = gatewayUrl(
+          nip19.neventEncode({ id: post.id, author: post.pubkey }),
+        );
+        return html`<li>
+          <a class="date" href="${url}"
+            ><time
+              datetime="${date.toISOString()}"
+              title="${fullDate.format(date)}"
+              >${shortDate(date, now)}</time
+            ></a
+          >${noteContent(post)}
+        </li> `;
+      })}
+    </ol>
+    ${pagerHtml}`;
 }
 
 const TIME_ZONE = "Asia/Tokyo";
-const fullDate = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short", timeZone: TIME_ZONE });
-const dateParts = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: TIME_ZONE });
+const fullDate = new Intl.DateTimeFormat("ja-JP", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: TIME_ZONE,
+});
+const dateParts = new Intl.DateTimeFormat("ja-JP", {
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  timeZone: TIME_ZONE,
+});
 
 // 今年の投稿は「9月30日」、それより前は「2025年9月30日」
 function shortDate(date: Date, now: Date): string {
-  const parts = (d: Date) => Object.fromEntries(dateParts.formatToParts(d).map((p) => [p.type, p.value]));
+  const parts = (d: Date) =>
+    Object.fromEntries(
+      dateParts.formatToParts(d).map((p) => [p.type, p.value]),
+    );
   const { year, month, day } = parts(date);
   const sameYear = year === parts(now).year;
   return `${sameYear ? "" : `${year}年`}${month}月${day}日`;
 }
 
 function gatewayUrl(code: string): string {
-  return `https://njump.me/${code}`;
+  return `https://nostr.com/${code}`;
 }
 
 type Pointer = Extract<nip27.Block, { type: "reference" }>["pointer"];
@@ -146,7 +188,7 @@ function shorten(code: string): string {
   return code.length > 24 ? `${code.slice(0, 16)}…${code.slice(-6)}` : code;
 }
 
-// 投稿本文を HTML にする。URL はリンク、画像・動画は埋め込み、nostr: 参照は njump.me へのリンクにする
+// 投稿本文を HTML にする。URL はリンク、画像・動画は埋め込み、nostr: 参照は nostr.com へのリンクにする
 function noteContent(event: Event): Html[] {
   return [...nip27.parse(event)].map((block) => {
     switch (block.type) {
@@ -163,13 +205,20 @@ function noteContent(event: Event): Html[] {
     if (!url) return html`${block.url}`;
     switch (block.type) {
       case "image":
-        return html`<a href="${url}" rel="nofollow noopener"><img src="${url}" alt="" loading="lazy"></a>`;
+        return html`<a href="${url}" rel="nofollow noopener"
+          ><img src="${url}" alt="" loading="lazy"
+        /></a>`;
       case "video":
         return html`<video src="${url}" controls preload="metadata"></video>`;
       case "audio":
         return html`<audio src="${url}" controls preload="metadata"></audio>`;
       case "emoji":
-        return html`<img class="emoji" src="${url}" alt=":${block.shortcode}:" title=":${block.shortcode}:">`;
+        return html`<img
+          class="emoji"
+          src="${url}"
+          alt=":${block.shortcode}:"
+          title=":${block.shortcode}:"
+        />`;
       default:
         return html`<a href="${url}" rel="nofollow noopener">${url}</a>`;
     }
