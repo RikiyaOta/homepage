@@ -106,7 +106,7 @@ describe("トップページ", () => {
     assert.equal(countPosts(body), 20);
     assert.ok(!body.includes("これはリプライ"));
     assert.ok(body.indexOf("テスト投稿 24") < body.indexOf("テスト投稿 23"));
-    assert.match(body, /href="https:\/\/nostr\.com\/nevent1/);
+    assert.match(body, /href="https:\/\/primal\.net\/e\/nevent1/);
     assert.match(body, />9月1日<\/time>|>2026年9月1日<\/time>/);
 
     const next = body.match(/href="(\/\?until=\d+)"/);
