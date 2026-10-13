@@ -82,7 +82,7 @@ describe("トップページ", () => {
     assert.match(body, /<title>RikiyaOta<\/title>/);
     assert.match(body, /<img class="avatar" src="https:\/\/example\.com\/me\.jpg"/);
     assert.match(body, /<p class="bio">テスト用のプロフィールです。&lt;b&gt;太字&lt;\/b&gt;<\/p>/);
-    assert.ok(body.includes(`href="https://nostr.com/${NPUB}"`));
+    assert.ok(body.includes(`href="https://nosta.me/${NPUB}"`));
     assert.ok(body.includes('href="https://github.com/RikiyaOta"'));
   });
 

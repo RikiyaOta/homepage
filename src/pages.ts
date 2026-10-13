@@ -77,7 +77,10 @@ export function homePage(options: {
   isFirstPage: boolean;
 }): Html {
   const { profile, npub, page, isFirstPage } = options;
-  const links = [{ label: "Nostr", url: gatewayUrl(npub) }, ...config.links];
+  const links = [
+    { label: "Nostr", url: `https://nosta.me/${npub}` },
+    ...config.links,
+  ];
   const picture = safeUrl(profile?.picture);
   return html`<header>
       ${picture && html`<img class="avatar" src="${picture}" alt="" width="64" height="64" />`}
