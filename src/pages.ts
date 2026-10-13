@@ -77,7 +77,10 @@ export function homePage(options: {
   isFirstPage: boolean;
 }): Html {
   const { profile, npub, page, isFirstPage } = options;
-  const links = [{ label: "Nostr", url: gatewayUrl(npub) }, ...config.links];
+  const links = [
+    { label: "Nostr", url: `https://nosta.me/${npub}` },
+    ...config.links,
+  ];
   const picture = safeUrl(profile?.picture);
   return html`<header>
       ${picture && html`<img class="avatar" src="${picture}" alt="" width="64" height="64" />`}
@@ -131,9 +134,7 @@ function postList(page: PostsPage | null, isFirstPage: boolean): Html {
   return html`<ol class="posts">
       ${page.posts.map((post) => {
         const date = new Date(post.created_at * 1000);
-        const url = gatewayUrl(
-          nip19.neventEncode({ id: post.id, author: post.pubkey }),
-        );
+        const url = `https://primal.net/e/${nip19.neventEncode({ id: post.id, author: post.pubkey })}`;
         // li は white-space: pre-wrap なので、タグの前後に改行や字下げを入れると表示に出てしまう
         // prettier-ignore
         return html`<li><a class="date" href="${url}"><time datetime="${date.toISOString()}" title="${fullDate.format(date)}">${shortDate(date, now)}</time></a>${noteContent(post)}</li>`;

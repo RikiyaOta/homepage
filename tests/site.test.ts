@@ -82,8 +82,16 @@ describe("トップページ", () => {
     assert.match(body, /<title>RikiyaOta<\/title>/);
     assert.match(body, /<img class="avatar" src="https:\/\/example\.com\/me\.jpg"/);
     assert.match(body, /<p class="bio">テスト用のプロフィールです。&lt;b&gt;太字&lt;\/b&gt;<\/p>/);
-    assert.ok(body.includes(`href="https://nostr.com/${NPUB}"`));
+    assert.ok(body.includes(`href="https://nosta.me/${NPUB}"`));
     assert.ok(body.includes('href="https://github.com/RikiyaOta"'));
+  });
+
+  test("投稿の日付は primal.net の投稿ページへのリンクになる", async () => {
+    const body = await (await get("/")).text();
+    assert.match(
+      body,
+      /<li><a class="date" href="https:\/\/primal\.net\/e\/nevent1[0-9a-z]+"/,
+    );
   });
 
   test("検索エンジンに載せない指定とセキュリティヘッダーを付ける", async () => {
@@ -98,7 +106,7 @@ describe("トップページ", () => {
     assert.equal(countPosts(body), 20);
     assert.ok(!body.includes("これはリプライ"));
     assert.ok(body.indexOf("テスト投稿 24") < body.indexOf("テスト投稿 23"));
-    assert.match(body, /href="https:\/\/nostr\.com\/nevent1/);
+    assert.match(body, /href="https:\/\/primal\.net\/e\/nevent1/);
     assert.match(body, />9月1日<\/time>|>2026年9月1日<\/time>/);
 
     const next = body.match(/href="(\/\?until=\d+)"/);
