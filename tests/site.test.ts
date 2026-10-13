@@ -86,6 +86,14 @@ describe("トップページ", () => {
     assert.ok(body.includes('href="https://github.com/RikiyaOta"'));
   });
 
+  test("投稿の日付は primal.net の投稿ページへのリンクになる", async () => {
+    const body = await (await get("/")).text();
+    assert.match(
+      body,
+      /<li><a class="date" href="https:\/\/primal\.net\/e\/nevent1[0-9a-z]+"/,
+    );
+  });
+
   test("検索エンジンに載せない指定とセキュリティヘッダーを付ける", async () => {
     const res = await get("/");
     assert.equal(res.headers.get("x-robots-tag"), "noindex");
