@@ -6,6 +6,7 @@
 | :--- | :--- |
 | `/` | Nostr プロフィール (kind 0) の画像、名前、自己紹介文、リンク。その下に自分の Nostr 投稿 (kind 1) をリプライを除いて 20 件ずつ表示 (`?until=` で前の投稿へ) |
 | `/.well-known/nostr.json` | NIP-05。サイトのドメインを Nostr の認証済み ID として使うためのもの |
+| `/public/*` | [`assets/public/`](assets/public) に置いたファイルをそのまま返す (Workers Static Assets) |
 
 管理画面やデータベースはありません。Nostr アプリから投稿すれば、そのままサイトに反映されます。
 

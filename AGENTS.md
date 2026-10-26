@@ -25,6 +25,7 @@
 ### 2.1 構成
 
 - **Cloudflare Worker 1 本だけ**で動く。フレームワーク・DB・ストレージ・バインディングは持たない。
+- 画像などの固定ファイルは `assets/` に置き、Workers Static Assets で配信する（R2 は使わない）。`assets/public/foo.jpg` は `/public/foo.jpg` で返る。パスに一致するファイルがあれば Worker を通らないので、ヘッダーは [`assets/_headers`](assets/_headers) で付ける。
 - コンテンツはすべて Nostr から取得する。
   - トップ (`/`) の 1 ページだけ。プロフィール画像 (kind 0 の picture)・名前・自己紹介 (kind 0 の about)・リンクの下に、自分の短文投稿 (kind 1) のうちリプライ以外を 20 件ずつ並べる。`?until=` で前の投稿へ、前の投稿のページからは「最新の投稿へ」でトップへ戻る
   - NIP-05 (`/.well-known/nostr.json`)
@@ -120,6 +121,7 @@ mise exec -- pnpm check            # Worker のバンドル確認 (wrangler depl
 │       └── deploy.yml       # main マージ時に wrangler deploy
 ├── src/                     # Worker 本体
 ├── tests/                   # テストと疑似リレー
+├── assets/                  # 固定ファイル (Workers Static Assets で配信)
 ├── renovate.json            # 依存の自動更新 (現在は停止中)
 ├── wrangler.jsonc           # Worker 設定 (カスタムドメイン)
 ├── tsconfig.json
