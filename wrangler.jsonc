@@ -5,6 +5,9 @@
   "compatibility_date": "2026-08-01",
   "workers_dev": false,
   "preview_urls": false,
+  // assets/ 以下のファイル (画像など) は Worker を通さずにそのまま返す。
+  // パスに一致するファイルがないときだけ Worker が動く
+  "assets": { "directory": "./assets" },
   "routes": [
     { "pattern": "rikiyaota.kyoto", "custom_domain": true },
     // Worker 内で www なしへリダイレクトする

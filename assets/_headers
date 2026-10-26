@@ -1,0 +1,5 @@
+# Workers Static Assets のレスポンスヘッダー。Worker を通らないのでここで付ける
+/*
+  X-Content-Type-Options: nosniff
+  X-Robots-Tag: noindex
+  Cache-Control: public, max-age=86400
