@@ -43,6 +43,13 @@ events.push(
     created_at: BASE_TIME + 3600,
     content: "<script>alert(1)</script> https://example.com/a.png https://example.com/page",
   }),
+  sign({
+    kind: 1,
+    created_at: BASE_TIME + 3500,
+    content:
+      "動画 https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s ショート https://youtube.com/shorts/abcdefghijk " +
+      "長い URL https://example.com/articles/2026/11/a-very-long-article-title-for-testing?ref=nostr",
+  }),
 );
 
 let relay: MockRelay;
@@ -114,7 +121,7 @@ describe("トップページ", () => {
     assert.ok(!body.includes(">最新の投稿へ<"), "最初のページには「最新の投稿へ」がない");
 
     const older = await (await get(next[1])).text();
-    assert.equal(countPosts(older), 6);
+    assert.equal(countPosts(older), 7);
     assert.ok(older.includes("テスト投稿 0"));
     assert.ok(!older.includes("/?until="), "最後のページには「もっと前の投稿」がない");
     assert.ok(older.includes('<a href="/">最新の投稿へ</a>'), "前のページには「最新の投稿へ」がある");
@@ -125,7 +132,20 @@ describe("トップページ", () => {
     assert.ok(!body.includes("<script>alert(1)</script>"));
     assert.ok(body.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
     assert.match(body, /<img src="https:\/\/example\.com\/a\.png"/);
-    assert.match(body, /<a href="https:\/\/example\.com\/page" rel="nofollow noopener">/);
+    assert.match(body, /<a href="https:\/\/example\.com\/page" rel="nofollow noopener">example\.com\/page<\/a>/);
+  });
+
+  test("YouTube の URL はプレーヤーを埋め込み、長い URL は短くして表示する", async () => {
+    const res = await get("/");
+    const body = await res.text();
+    assert.match(body, /<iframe\s+class="youtube"\s+src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?start=90"/);
+    assert.match(body, /<iframe\s+class="youtube shorts"\s+src="https:\/\/www\.youtube-nocookie\.com\/embed\/abcdefghijk"/);
+    assert.ok(!body.includes(">https://www.youtube.com/watch"), "YouTube の URL 自体は表示しない");
+    assert.match(
+      body,
+      /<a href="https:\/\/example\.com\/articles\/2026\/11\/a-very-long-article-title-for-testing\?ref=nostr" rel="nofollow noopener">example\.com\/articles\/2026\/11\/a-very-lon…<\/a>/,
+    );
+    assert.match(res.headers.get("content-security-policy") ?? "", /frame-src https:\/\/www\.youtube-nocookie\.com/);
   });
 
   test("先に応答したリレーで打ち切らず、遅いリレーの投稿もマージする", async () => {

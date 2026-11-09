@@ -37,6 +37,8 @@ h2 { font-size: 0.8rem; font-weight: 600; color: var(--muted); letter-spacing: 0
 .posts .date { font-size: 0.8rem; color: var(--muted); text-decoration: none; margin-right: 0.6rem; }
 .posts img { display: block; margin: 0.5rem 0; max-height: 480px; width: auto; }
 .posts img.emoji { display: inline; height: 1.4em; margin: 0; vertical-align: middle; }
+.posts .youtube { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 0.5rem 0; border: 0; }
+.posts .youtube.shorts { width: auto; height: min(480px, 70vh); aspect-ratio: 9 / 16; max-width: 100%; }
 .muted { color: var(--muted); }
 .pager { font-size: 0.9rem; }
 .pager span { color: var(--muted); margin: 0 0.4rem; }
@@ -214,8 +216,77 @@ function noteContent(event: Event): Html[] {
           alt=":${block.shortcode}:"
           title=":${block.shortcode}:"
         />`;
-      default:
-        return html`<a href="${url}" rel="nofollow noopener">${url}</a>`;
+      default: {
+        const video = youtubeVideo(url);
+        if (video) return youtubeEmbed(video);
+        return html`<a href="${url}" rel="nofollow noopener">${displayUrl(url)}</a>`;
+      }
     }
   });
+}
+
+const DISPLAY_URL_LENGTH = 40;
+
+// リンクの表示用に URL を短くする。https:// と www. を外し、長ければ末尾を「…」で省く
+function displayUrl(url: string): string {
+  let text = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  try {
+    // 日本語などがパーセントエンコードされたままだと読めず長くなるので戻す
+    text = decodeURI(text);
+  } catch {
+    // 不正なエンコードはそのまま表示する
+  }
+  if (text.endsWith("/") && text.indexOf("/") === text.length - 1) text = text.slice(0, -1);
+  const chars = [...text];
+  return chars.length > DISPLAY_URL_LENGTH ? `${chars.slice(0, DISPLAY_URL_LENGTH - 1).join("")}…` : text;
+}
+
+interface YoutubeVideo {
+  id: string;
+  start: number | null;
+  shorts: boolean;
+}
+
+const YOUTUBE_ID = /^[\w-]{11}$/;
+const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"]);
+
+// YouTube の動画 URL (watch / youtu.be / shorts / live / embed) から動画 ID と開始位置を取り出す
+function youtubeVideo(url: string): YoutubeVideo | null {
+  const parsed = new URL(url);
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  let id: string | undefined;
+  let shorts = false;
+  if (parsed.hostname === "youtu.be") {
+    id = segments[0];
+  } else if (YOUTUBE_HOSTS.has(parsed.hostname)) {
+    if (segments[0] === "watch") id = parsed.searchParams.get("v") ?? undefined;
+    else if (["shorts", "live", "embed"].includes(segments[0])) {
+      id = segments[1];
+      shorts = segments[0] === "shorts";
+    }
+  }
+  if (!id || !YOUTUBE_ID.test(id)) return null;
+  return { id, start: parseStart(parsed.searchParams.get("t") ?? parsed.searchParams.get("start")), shorts };
+}
+
+// 「90」「90s」「1m30s」「1h2m3s」を秒にする
+function parseStart(value: string | null): number | null {
+  const match = value?.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  if (!match) return null;
+  const seconds = Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0);
+  return seconds > 0 ? seconds : null;
+}
+
+// Cookie を使わない youtube-nocookie.com のプレーヤーを埋め込む (CSP の frame-src で許可している)
+function youtubeEmbed(video: YoutubeVideo): Html {
+  const src = `https://www.youtube-nocookie.com/embed/${video.id}${video.start ? `?start=${video.start}` : ""}`;
+  return html`<iframe
+    class="youtube${video.shorts ? " shorts" : ""}"
+    src="${src}"
+    title="YouTube 動画"
+    loading="lazy"
+    allow="encrypted-media; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>`;
 }

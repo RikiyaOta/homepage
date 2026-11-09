@@ -35,7 +35,7 @@ const RENDERED_AT = "X-Rendered-At";
 
 const COMMON_HEADERS: Record<string, string> = {
   "Content-Security-Policy":
-    "default-src 'none'; img-src https:; media-src https:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "default-src 'none'; img-src https:; media-src https:; frame-src https://www.youtube-nocookie.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   // 検索エンジンに載せない
