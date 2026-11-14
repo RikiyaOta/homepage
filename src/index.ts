@@ -1,7 +1,7 @@
 import { config } from "./config.ts";
 import type { Html } from "./html.ts";
-import { decodeNpub, getPosts, getProfile } from "./nostr.ts";
-import { homePage, layout, notFoundPage } from "./pages.ts";
+import { type Profile, decodeNpub, getArticle, getArticles, getPosts, getProfile } from "./nostr.ts";
+import { articlePage, articlesPage, homePage, layout, notFoundPage, unavailablePage } from "./pages.ts";
 
 // 本番では何も設定しない。テストやローカル確認で取得先を差し替えるためのもの
 export interface Env {
@@ -63,35 +63,72 @@ export default {
         const until = parseUntil(url.searchParams.get("until"));
         const key = `${url.origin}/${until ? `?until=${until}` : ""}`;
         return cached(key, ctx, async () => {
-          const [profile, posts] = await Promise.all([
+          const [profile, posts, articles] = await Promise.all([
             getProfile(site.relays, site.pubkey),
             getPosts(site.relays, site.pubkey, until),
+            // 記事一覧は最初のページにだけ出す
+            until ? null : getArticles(site.relays, site.pubkey),
           ]);
           const body = homePage({
             profile: profile.data,
             npub: site.npub,
+            articles: articles?.data ?? [],
             page: posts.ok ? posts.data : null,
             isFirstPage: !until,
           });
           return {
             body: layout({ profile: profile.data, body }),
             status: posts.ok ? 200 : 503,
-            // 自己紹介か投稿のどちらかが取れなかったページは、次のアクセスで作り直す
-            cacheable: posts.ok && profile.ok,
+            // 自己紹介・投稿・記事のどれかが取れなかったページは、次のアクセスで作り直す
+            cacheable: posts.ok && profile.ok && (articles?.ok ?? true),
           };
         });
       }
 
+      case "/articles":
+        return cached(`${url.origin}/articles`, ctx, async () => {
+          const [profile, articles] = await Promise.all([
+            getProfile(site.relays, site.pubkey),
+            getArticles(site.relays, site.pubkey),
+          ]);
+          if (!articles.ok) return unavailable(profile.data);
+          // 記事が 1 つもないうちは、一覧ページも存在しないものとして扱う
+          if (articles.data.length === 0) return { ...notFound(), cacheable: profile.ok };
+          return {
+            body: layout({ title: "Articles", profile: profile.data, body: articlesPage(articles.data) }),
+            status: 200,
+            cacheable: profile.ok,
+          };
+        });
+
       case "/.well-known/nostr.json":
         return nostrJson(site);
-
-      default:
-        return htmlResponse({
-          body: layout({ title: "404", profile: null, body: notFoundPage() }),
-          status: 404,
-          cacheable: false,
-        });
     }
+
+    const slug = articleSlug(url.pathname);
+    if (slug !== null) {
+      return cached(`${url.origin}${url.pathname}`, ctx, async () => {
+        const [profile, article] = await Promise.all([
+          getProfile(site.relays, site.pubkey),
+          getArticle(site.relays, site.pubkey, slug),
+        ]);
+        if (!article.ok) return unavailable(profile.data);
+        if (!article.data) return { ...notFound(), cacheable: profile.ok };
+        const { title, summary, image } = article.data;
+        return {
+          body: layout({
+            title,
+            profile: profile.data,
+            body: articlePage(article.data),
+            og: { title, description: summary, image },
+          }),
+          status: 200,
+          cacheable: profile.ok,
+        };
+      });
+    }
+
+    return htmlResponse(notFound());
   },
 };
 
@@ -101,6 +138,34 @@ function siteFromEnv(env: Env): Site {
     ? env.NOSTR_RELAYS.split(",").map((r) => r.trim()).filter(Boolean)
     : config.relays;
   return { npub, pubkey: decodeNpub(npub), relays };
+}
+
+// /articles/<d タグ> の d タグ部分。d タグは日本語なども使えるので、パーセントエンコードを戻す
+function articleSlug(pathname: string): string | null {
+  const match = pathname.match(/^\/articles\/([^/]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function notFound(): Rendered {
+  return {
+    body: layout({ title: "404", profile: null, body: notFoundPage() }),
+    status: 404,
+    cacheable: false,
+  };
+}
+
+// リレーから 1 つも応答がなかったとき。キャッシュせず、古いキャッシュがあればそちらが返る
+function unavailable(profile: Profile | null): Rendered {
+  return {
+    body: layout({ title: "503", profile, body: unavailablePage() }),
+    status: 503,
+    cacheable: false,
+  };
 }
 
 function parseUntil(value: string | null): number | undefined {

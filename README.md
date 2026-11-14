@@ -5,6 +5,8 @@
 | パス | 内容 |
 | :--- | :--- |
 | `/` | Nostr プロフィール (kind 0) の画像、名前、自己紹介文、リンク。その下に自分の Nostr 投稿 (kind 1) をリプライを除いて 20 件ずつ表示 (`?until=` で前の投稿へ) |
+| `/articles` | Nostr の長文投稿 (NIP-23, kind 30023) の一覧。記事があるときはトップにも最新 5 件を表示 |
+| `/articles/<d タグ>` | 長文投稿の記事ページ (本文は Markdown) |
 | `/.well-known/nostr.json` | NIP-05。サイトのドメインを Nostr の認証済み ID として使うためのもの |
 | `/public/*` | [`assets/public/`](assets/public) に置いたファイルをそのまま返す (Workers Static Assets) |
 

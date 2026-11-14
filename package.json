@@ -11,6 +11,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "marked": "18.2.0",
     "nostr-tools": "2.25.2"
   },
   "devDependencies": {

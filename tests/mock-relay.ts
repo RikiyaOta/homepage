@@ -69,6 +69,8 @@ function matches(event: Event, filter: Filter): boolean {
   if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
   if (filter.authors && !filter.authors.includes(event.pubkey)) return false;
   if (filter.until && event.created_at > filter.until) return false;
+  const d = filter["#d"];
+  if (d && !event.tags.some((tag) => tag[0] === "d" && d.includes(tag[1]))) return false;
   return true;
 }
 

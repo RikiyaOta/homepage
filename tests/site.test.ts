@@ -297,3 +297,147 @@ describe("キャッシュ", () => {
     assert.equal(cache.store.size, 0);
   });
 });
+
+describe("長文投稿 (記事)", () => {
+  // 7 件の記事。1 件目は編集済み (同じ d タグで新しいイベントがある)
+  const articleEvents: Event[] = [...events];
+  for (let i = 0; i < 7; i++) {
+    articleEvents.push(
+      sign({
+        kind: 30023,
+        created_at: BASE_TIME + i * 86400,
+        content: `記事 ${i} の本文`,
+        tags: [
+          ["d", `article-${i}`],
+          ["title", `記事タイトル ${i}`],
+          ["published_at", String(BASE_TIME + i * 86400)],
+        ],
+      }),
+    );
+  }
+  const markdown = [
+    "## 見出し",
+    "",
+    "本文の **強調** と `コード<b>` と [リンク](https://example.com/link) と [危険](javascript:alert(1))。",
+    "改行した行",
+    "",
+    "<script>alert(1)</script>",
+    "",
+    "- 項目 1",
+    "- 項目 2",
+    "",
+    "```ts",
+    "const a = 1 < 2;",
+    "```",
+    "",
+    "![画像](https://example.com/b.png) https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "",
+    "> 引用",
+    "",
+    "| a | b |",
+    "|:-|-:|",
+    "| 1 | 2 |",
+    "",
+    `[プロフィール](nostr:${NPUB}) [秘密鍵](nostr:nsec1aaaa)`,
+  ].join("\n");
+  articleEvents.push(
+    sign({
+      kind: 30023,
+      created_at: BASE_TIME + 30 * 86400,
+      content: markdown,
+      tags: [
+        ["d", "article-0"],
+        ["title", "編集後のタイトル <i>"],
+        ["summary", "記事の要約"],
+        ["image", "https://example.com/cover.jpg"],
+        ["published_at", String(BASE_TIME)],
+      ],
+    }),
+    sign({
+      kind: 30023,
+      created_at: BASE_TIME,
+      content: "日本語のスラッグ",
+      tags: [["d", "日本語 記事"], ["title", "日本語のスラッグの記事"], ["published_at", String(BASE_TIME - 86400)]],
+    }),
+  );
+
+  let articleRelay: MockRelay;
+  before(async () => {
+    articleRelay = await startMockRelay(articleEvents);
+  });
+  after(() => articleRelay.close());
+
+  const getWithArticles = (path: string) => get(path, { NOSTR_NPUB: NPUB, NOSTR_RELAYS: articleRelay.url });
+
+  test("記事がないときは、トップに記事一覧を出さず /articles も 404", async () => {
+    const body = await (await get("/")).text();
+    assert.ok(!body.includes(">Articles<"));
+    assert.equal((await get("/articles")).status, 404);
+  });
+
+  test("トップに最新の記事を 5 件出し、それより多ければ /articles へリンクする", async () => {
+    const body = await (await getWithArticles("/")).text();
+    assert.ok(body.includes(">Articles<"));
+    assert.ok(body.indexOf(">Articles<") < body.indexOf(">Posts<"), "記事一覧は投稿の前");
+    const links = [...body.matchAll(/<a href="\/articles\/([^"]+)">/g)].map((m) => m[1]);
+    assert.deepEqual(links, ["article-6", "article-5", "article-4", "article-3", "article-2"]);
+    assert.ok(body.includes('<a href="/articles">すべての記事</a>'));
+  });
+
+  test("前の投稿のページには記事一覧を出さない", async () => {
+    const body = await (await getWithArticles(`/?until=${BASE_TIME + 3000}`)).text();
+    assert.ok(!body.includes(">Articles<"));
+  });
+
+  test("/articles にはすべての記事を公開日順に並べ、編集前の版は出さない", async () => {
+    const res = await getWithArticles("/articles");
+    assert.equal(res.status, 200);
+    const body = await res.text();
+    const links = [...body.matchAll(/<a href="\/articles\/([^"]+)">/g)].map((m) => m[1]);
+    assert.equal(links.length, 8);
+    assert.equal(links.at(-1), encodeURIComponent("日本語 記事"));
+    assert.ok(body.includes("編集後のタイトル &lt;i&gt;"));
+    assert.ok(!body.includes("記事タイトル 0"));
+  });
+
+  test("記事ページは Markdown を HTML にし、外部データはエスケープする", async () => {
+    const res = await getWithArticles("/articles/article-0");
+    assert.equal(res.status, 200);
+    const body = await res.text();
+    assert.match(body, /<title>編集後のタイトル &lt;i&gt; - RikiyaOta<\/title>/);
+    assert.match(body, /<h1>編集後のタイトル &lt;i&gt;<\/h1>/);
+    assert.match(body, /<meta property="og:description" content="記事の要約" \/>/);
+    assert.match(body, /<img class="cover" src="https:\/\/example\.com\/cover\.jpg"/);
+    assert.match(body, /（<time[^>]*>[^<]+<\/time> 更新）/, "公開後に編集していれば更新日を出す");
+    assert.ok(body.includes("<h2>見出し</h2>"));
+    assert.ok(body.includes("<strong>強調</strong>"));
+    assert.ok(body.includes("<code>コード&lt;b&gt;</code>"));
+    assert.ok(body.includes('<a href="https://example.com/link" rel="nofollow noopener">リンク</a>'));
+    assert.ok(!body.includes("javascript:"), "http(s) 以外のリンクは捨てる");
+    assert.ok(body.includes("<br />改行した行"));
+    assert.ok(!body.includes("<script>"));
+    assert.ok(body.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+    assert.match(body, /<ul><li>項目 1<\/li><li>項目 2<\/li><\/ul>/);
+    assert.ok(body.includes("<pre><code>const a = 1 &lt; 2;</code></pre>"));
+    assert.ok(body.includes('<img src="https://example.com/b.png" alt="画像" loading="lazy" />'));
+    assert.match(body, /<iframe\s+class="youtube"\s+src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ"/);
+    assert.match(body, /<blockquote><p>引用<\/p><\/blockquote>/);
+    assert.match(body, /<th class="align-left">a<\/th>/);
+    assert.ok(body.includes(`<a href="https://nostr.com/${NPUB}">プロフィール</a>`));
+    assert.ok(!body.includes("nsec1"), "公開してはいけない識別子はリンクにしない");
+    assert.match(body, /<a href="https:\/\/nostr\.com\/naddr1[0-9a-z]+">Nostr で見る<\/a>/);
+  });
+
+  test("日本語の d タグもパスに使える", async () => {
+    const res = await getWithArticles(`/articles/${encodeURIComponent("日本語 記事")}`);
+    assert.equal(res.status, 200);
+    assert.ok((await res.text()).includes("<h1>日本語のスラッグの記事</h1>"));
+  });
+
+  test("存在しない記事は 404、リレーに接続できないときは 503", async () => {
+    assert.equal((await getWithArticles("/articles/missing")).status, 404);
+    const res = await get("/articles/article-0", { NOSTR_NPUB: NPUB, NOSTR_RELAYS: "ws://127.0.0.1:1" });
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get("cache-control"), "no-store");
+  });
+});

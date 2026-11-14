@@ -155,3 +155,65 @@ export async function getPosts(
 
   return { data: { posts, nextUntil }, ok };
 }
+
+// 長文投稿 (NIP-23, kind 30023)。d タグで一意に決まり、編集すると同じ d タグの新しいイベントで置き換わる
+export const ARTICLE_KIND = 30023;
+
+export interface Article {
+  // d タグ。記事ページのパス (/articles/<slug>) に使う
+  slug: string;
+  title: string;
+  summary: string | null;
+  image: string | null;
+  // 公開日時 (published_at タグ)。なければ作成日時で代用する
+  publishedAt: number;
+  // 最後に編集した日時 (created_at)
+  updatedAt: number;
+  event: Event;
+}
+
+function tagValue(event: Event, name: string): string | undefined {
+  return event.tags.find((tag) => tag[0] === name)?.[1];
+}
+
+function toArticle(event: Event): Article | null {
+  const slug = tagValue(event, "d");
+  if (!slug) return null;
+  const published = Number(tagValue(event, "published_at"));
+  return {
+    slug,
+    title: tagValue(event, "title")?.trim() || slug,
+    summary: tagValue(event, "summary")?.trim() || null,
+    image: tagValue(event, "image") ?? null,
+    publishedAt: Number.isSafeInteger(published) && published > 0 ? published : event.created_at,
+    updatedAt: event.created_at,
+    event,
+  };
+}
+
+// 同じ d タグのイベントは、いちばん新しいもの (最後に編集したもの) だけを残す。
+// query() は新しい順に返すので、先に出てきたものを採用する
+function latestArticles(events: Event[]): Article[] {
+  const articles = new Map<string, Article>();
+  for (const event of events) {
+    const article = toArticle(event);
+    if (article && !articles.has(article.slug)) articles.set(article.slug, article);
+  }
+  return [...articles.values()];
+}
+
+// 自分の長文投稿を公開日の新しい順に返す
+export async function getArticles(relays: string[], pubkey: string): Promise<QueryResult<Article[]>> {
+  const { data, ok } = await query(relays, { kinds: [ARTICLE_KIND], authors: [pubkey], limit: 500 });
+  const articles = latestArticles(data).sort((a, b) => b.publishedAt - a.publishedAt);
+  return { data: articles, ok };
+}
+
+export async function getArticle(
+  relays: string[],
+  pubkey: string,
+  slug: string,
+): Promise<QueryResult<Article | null>> {
+  const { data, ok } = await query(relays, { kinds: [ARTICLE_KIND], authors: [pubkey], "#d": [slug] });
+  return { data: latestArticles(data)[0] ?? null, ok };
+}
